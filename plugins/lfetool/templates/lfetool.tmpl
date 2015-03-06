@@ -256,7 +256,7 @@ clone_repo () {
 }
 
 bootstrap_lfe () {
-    if [ ! -d $BOOTSTRAP_LFE_DIR ] ; then
+    if [ ! -d "$BOOTSTRAP_LFE_DIR" ] ; then
         mkdir -p $BOOTSTRAP_DEPS_DIR
         echo "Bootstrapping LFE to $BOOTSTRAP_LFE_DIR ..."
         clone_repo $LFE_REPO $BOOTSTRAP_LFE_DIR 1> /dev/null
@@ -267,13 +267,14 @@ bootstrap_lfe () {
 
 bootstrap_lutil () {
     BOOT_DIR=$BOOTSTRAP_DEPS_DIR/lutil
-    if [ ! -d $BOOT_DIR ] ; then
+    if [ ! -d "$BOOT_DIR" ] ; then
         echo "Bootstrapping lutil to $BOOT_DIR ..."
         clone_repo $LUTIL_REPO $BOOT_DIR 1> /dev/null
         export PATH=$BOOTSTRAP_LFE_DIR/bin:$PATH
         export ERL_LIBS=`get_bootstrap_erl_libs`
         cd $BOOT_DIR && \
-        ln -s $BOOTSTRAP_LFE_DIR $BOOTSTRAP_DEPS_DIR && \
+        ln -s $BOOTSTRAP_LFE_DIR $BOOTSTRAP_DEPS_DIR &> /dev/null || \
+        echo "LFE already symlinked ..." && \
         mkdir -p ebin && cd ebin && \
         $BOOTSTRAP_LFEC $BOOT_DIR/src/*.lfe
         cp $BOOT_DIR/src/lutil.app.src $BOOT_DIR/ebin/lutil.app
@@ -282,17 +283,26 @@ bootstrap_lutil () {
 
 bootstrap_lcfg () {
     BOOT_DIR=$BOOTSTRAP_DEPS_DIR/lcfg
-    if [ ! -d $BOOT_DIR ] ; then
+    if [ ! -d "$BOOT_DIR" ] ; then
         echo "Bootstrapping lcfg to $BOOT_DIR ..."
         clone_repo $LCFG_REPO $BOOT_DIR 1> /dev/null
         export PATH=$BOOTSTRAP_LFE_DIR/bin:$PATH
         export ERL_LIBS=`get_bootstrap_erl_libs`
         cd $BOOT_DIR && \
-        ln -s $BOOTSTRAP_LFE_DIR $BOOTSTRAP_DEPS_DIR || echo "LFE already symlinked ..."&& \
+        ln -s $BOOTSTRAP_LFE_DIR $BOOTSTRAP_DEPS_DIR &> /dev/null || \
+        echo "LFE already symlinked ..." && \
         mkdir -p ebin && cd ebin && \
         $BOOTSTRAP_LFEC $BOOT_DIR/src/*.lfe
         cp $BOOT_DIR/src/lcfg.app.src $BOOT_DIR/ebin/lcfg.app
     fi
+}
+
+bootstrap_lfetool () {
+    START_DIR=`pwd`
+    bootstrap_lfe
+    bootstrap_lutil
+    bootstrap_lcfg
+    cd $START_DIR
 }
 
 download_file () {
@@ -552,12 +562,7 @@ get_versions () {
 }
 
 download_deps () {
-    START_DIR=`pwd`
-    bootstrap_lfe
-    bootstrap_lutil
-    bootstrap_lcfg
-    cd $START_DIR
-    (ERL_LIBS=`get_bootstrap_erl_libs` \
+    (ERL_LIBS=$ERL_LIBS:`get_bootstrap_erl_libs` \
     $BOOTSTRAP_LFE -eval '(lcfg:clone-deps)' +pc unicode)
     rebar get-deps
 }
@@ -1398,4 +1403,5 @@ run () {
     esac
 }
 
+bootstrap_lfetool
 run "$@"
